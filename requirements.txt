@@ -1,0 +1,15 @@
+black==26.1.0
+click==8.3.1
+colorzero==2.0
+gpiozero==2.0.1
+mypy_extensions==1.1.0
+packaging==26.0
+pathspec==1.0.4
+pigpio==1.78
+platformdirs==4.5.1
+pyorcasdk==1.1.0
+pytokens==0.4.1
+PyYAML==6.0.3
+setuptools==80.9.0
+wheel==0.45.1
+flask>=3.0

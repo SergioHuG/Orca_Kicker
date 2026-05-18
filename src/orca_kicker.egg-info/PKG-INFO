@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: orca_kicker
+Version: 0.1.0
+Summary: Pure KinematicMode linear motor kicker application
+Requires-Python: >=3.9
+Requires-Dist: pyorcasdk==1.1.0
+Requires-Dist: gpiozero==2.0.1
+Requires-Dist: pigpio==1.78
+Requires-Dist: PyYAML==6.0.3
+Requires-Dist: click==8.3.1

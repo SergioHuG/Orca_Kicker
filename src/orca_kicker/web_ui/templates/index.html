@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- ── Tab navigation ──────────────────────────────────────────────────── -->
+<div class="tabs" role="tablist">
+    <button class="tab-btn active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-status"
+            data-tab="status"
+            onclick="switchTab('status')">Status</button>
+    <button class="tab-btn"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-config"
+            data-tab="config"
+            onclick="switchTab('config')">Supervisor</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<!-- Tab 1 — Public status (no login required)                             -->
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-status" class="tab-pane" role="tabpanel">
+    <div class="status-panel">
+
+        <!-- Big state badge -->
+        <div class="state-badge-wrap">
+            <div id="state-badge" class="state-badge state-unknown" aria-live="polite">—</div>
+        </div>
+
+        <!-- Telemetry rows -->
+        <div class="status-grid">
+            <div class="status-row">
+                <span class="status-label">Position</span>
+                <span id="position-val" class="status-value mono">—</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Last Kick</span>
+                <span id="last-kick-val" class="status-value mono">—</span>
+            </div>
+        </div>
+
+        <!-- Error row — only visible in ERROR state -->
+        <div id="error-row" class="error-row hidden" aria-live="assertive">
+            <span class="error-label">⚠ Error</span>
+            <span id="error-val" class="error-text">—</span>
+        </div>
+
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<!-- Tab 2 — Supervisor (password-gated)                                   -->
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-config" class="tab-pane hidden" role="tabpanel">
+
+    <!-- ── Login form (shown when not authenticated) ────────────────────── -->
+    <div id="login-section" class="{{ 'hidden' if authenticated else '' }}">
+        <div class="card">
+            <h2 class="section-title">Supervisor Access</h2>
+            <p class="card-hint">Enter the supervisor password to access configuration and system controls.</p>
+            <div class="form-row">
+                <input  type="password"
+                        id="password-input"
+                        class="input-field"
+                        placeholder="Password"
+                        autocomplete="current-password"
+                        aria-label="Supervisor password">
+                <button class="btn btn-primary" onclick="doLogin()">Unlock</button>
+            </div>
+            <div id="login-error" class="inline-error hidden" role="alert"></div>
+        </div>
+    </div>
+
+    <!-- ── Config panel (shown when authenticated) ──────────────────────── -->
+    <div id="config-section" class="{{ '' if authenticated else 'hidden' }}">
+
+        <!-- Parameter editor -->
+        <div class="card">
+            <h2 class="section-title">Configuration</h2>
+            <div class="config-grid">
+                <div class="config-row">
+                    <label class="config-label" for="home_offset_um">Home Offset (µm)</label>
+                    <input type="number"
+                           id="home_offset_um"
+                           class="input-field input-narrow"
+                           step="any"
+                           aria-label="Home offset in micrometres">
+                </div>
+                <div class="config-row">
+                    <label class="config-label" for="extended_position_um">Extended Position (µm)</label>
+                    <input type="number"
+                           id="extended_position_um"
+                           class="input-field input-narrow"
+                           step="any"
+                           aria-label="Extended position in micrometres">
+                </div>
+                <div class="config-row">
+                    <label class="config-label" for="motion_extend_time_ms">Extend Time (ms)</label>
+                    <input type="number"
+                           id="motion_extend_time_ms"
+                           class="input-field input-narrow"
+                           step="1"
+                           min="0"
+                           aria-label="Motion extend time in milliseconds">
+                </div>
+                <div class="config-row">
+                    <label class="config-label" for="motion_return_time_ms">Return Time (ms)</label>
+                    <input type="number"
+                           id="motion_return_time_ms"
+                           class="input-field input-narrow"
+                           step="1"
+                           min="0"
+                           aria-label="Motion return time in milliseconds">
+                </div>
+            </div>
+            <div class="config-actions">
+                <button class="btn btn-primary" onclick="saveConfig()">Save Changes</button>
+                <span id="save-msg" class="save-msg hidden" aria-live="polite"></span>
+            </div>
+        </div>
+
+        <!-- System controls -->
+        <div class="card">
+            <h2 class="section-title">System Controls</h2>
+            <div class="system-actions">
+                <div class="system-action-row">
+                    <button class="btn btn-warning" onclick="confirmRestart()">Restart App</button>
+                    <span class="action-hint">Restarts the kicker application only (~5 s downtime)</span>
+                </div>
+                <div class="system-action-row">
+                    <button class="btn btn-danger" onclick="confirmReboot()">Full Reboot</button>
+                    <span class="action-hint">Reboots the Raspberry Pi (~45 s downtime)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session -->
+        <div class="session-row">
+            <button class="btn btn-ghost" onclick="doLogout()">Log Out</button>
+        </div>
+
+    </div><!-- /config-section -->
+</div><!-- /tab-config -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<!-- Confirmation dialog overlay                                            -->
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<div id="confirm-overlay" class="overlay hidden" role="dialog" aria-modal="true">
+    <div class="dialog">
+        <h3 id="dialog-title" class="dialog-title"></h3>
+        <p  id="dialog-msg"   class="dialog-msg"></p>
+        <div class="dialog-actions">
+            <button class="btn btn-ghost"  onclick="closeDialog()">Cancel</button>
+            <button id="dialog-confirm-btn" class="btn btn-danger">Confirm</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="restarting-panel">
+    <div class="spinner" aria-hidden="true"></div>
+    <h2 class="restarting-title">{{ title }}</h2>
+    <p  class="restarting-msg">{{ message }}</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /**
+     * Poll /health every second.
+     * When the server responds 200 OK, redirect to the main page.
+     * This prevents the browser from showing a raw "connection refused" error.
+     *
+     * Initial delay: 2 s (restart) or 5 s (reboot) before the first probe —
+     * chosen so the process is actually down before we start polling.
+     */
+    (function () {
+        var POLL_INTERVAL_MS = 1000;
+        var INITIAL_DELAY_MS = {{ 5000 if 'Reboot' in title else 2000 }};
+
+        function poll() {
+            fetch("/health", { cache: "no-store" })
+                .then(function (r) {
+                    if (r.ok) {
+                        window.location.replace("/");
+                    } else {
+                        setTimeout(poll, POLL_INTERVAL_MS);
+                    }
+                })
+                .catch(function () {
+                    setTimeout(poll, POLL_INTERVAL_MS);
+                });
+        }
+
+        setTimeout(poll, INITIAL_DELAY_MS);
+    })();
+</script>
+{% endblock %}

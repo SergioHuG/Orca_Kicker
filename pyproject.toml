@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orca_kicker"
+version = "0.1.0"
+description = "Pure KinematicMode linear motor kicker application"
+requires-python = ">=3.9"
+dependencies = [
+    "pyorcasdk==1.1.0",
+    "gpiozero==2.0.1",
+    "pigpio==1.78",
+    "PyYAML==6.0.3",
+    "click==8.3.1",
+]
+
+[project.scripts]
+orca-kicker = "orca_kicker.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]

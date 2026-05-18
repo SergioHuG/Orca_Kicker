@@ -1,0 +1,60 @@
+serial:
+  port: /dev/orca0
+  baudrate: 1000000
+  interframe_us: 80
+
+loop:
+  control_hz: 250
+
+motion:
+  home_offset_um: 8000
+  motion_home_id: 0
+  motion_extend_id: 1           # EXTEND motion (auto_next → return)
+  motion_return_id: 2           # RETURN motion (chained by firmware)
+  kin_type_min_jerk: 1
+  motion_home_time_ms: 500
+  motion_extend_time_ms: 150
+  motion_return_time_ms: 150
+  extended_position_um: 170000  # absolute target from home (µm)
+
+timeouts:
+  autozero_timeout_s: 60.0
+  home_timeout_s: 10.0
+  kick_timeout_s: 15.0          # extend + return + safety margin
+
+tolerances:
+  home_tol_um: 800
+
+logging:
+  log_dir: logs
+  csv_prefix: kick_cycle
+  enabled:  false
+
+gpio:
+  enabled: true
+  backend: pigpio
+  pigpio_host: localhost
+  autozero:
+    pin: 5
+    pull_up: true
+    bounce_time_s: 0.05
+    lockout_ms: 300
+  kick:
+    pin: 6
+    pull_up: true
+    bounce_time_s: null
+    lockout_ms: 150
+  sleep_toggle:
+    pin: 4                    # BCM pin — to be assigned
+    pull_up: true
+    bounce_time_s: 0.05
+    lockout_ms: 300
+  sleep_indicator:
+    pin: 27                    # BCM output pin — to be assigned
+    active_high: true
+
+web_ui:
+  host: "0.0.0.0"
+  port: 5000
+  status_json_path: "status.json"
+  secrets_path: "configs/secrets.yaml"

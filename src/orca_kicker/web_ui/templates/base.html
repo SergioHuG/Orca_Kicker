@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orca Kicker — Control Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="header">
+    <div class="header-inner">
+        <div class="logo-wrap">
+            <!--
+                Replace .logo-placeholder with an <img> when the logo JPEG is ready.
+                Target size: 88×40 px display (native asset: 1508×685 px @ 2×).
+                Example: <img src="{{ url_for('static', filename='logo.jpg') }}"
+                              class="logo-img" alt="Company logo">
+            -->
+            <div class="logo-placeholder">company logo</div>
+        </div>
+        <span class="header-title">Orca Kicker</span>
+    </div>
+</header>
+
+<main class="main">
+    {% block content %}{% endblock %}
+</main>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>
