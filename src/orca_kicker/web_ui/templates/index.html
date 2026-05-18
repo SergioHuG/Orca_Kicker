@@ -80,24 +80,36 @@
         <div class="card">
             <h2 class="section-title">Configuration</h2>
             <div class="config-grid">
+
                 <div class="config-row">
-                    <label class="config-label" for="home_offset_um">Home Offset (µm)</label>
+                    <div class="config-label-group">
+                        <label class="config-label" for="home_offset_um">Home Offset (µm)</label>
+                        <span class="config-current" id="cur_home_offset_um" aria-label="Current saved value">—</span>
+                    </div>
                     <input type="number"
                            id="home_offset_um"
                            class="input-field input-narrow"
                            step="any"
                            aria-label="Home offset in micrometres">
                 </div>
+
                 <div class="config-row">
-                    <label class="config-label" for="extended_position_um">Extended Position (µm)</label>
+                    <div class="config-label-group">
+                        <label class="config-label" for="extended_position_um">Extended Position (µm)</label>
+                        <span class="config-current" id="cur_extended_position_um" aria-label="Current saved value">—</span>
+                    </div>
                     <input type="number"
                            id="extended_position_um"
                            class="input-field input-narrow"
                            step="any"
                            aria-label="Extended position in micrometres">
                 </div>
+
                 <div class="config-row">
-                    <label class="config-label" for="motion_extend_time_ms">Extend Time (ms)</label>
+                    <div class="config-label-group">
+                        <label class="config-label" for="motion_extend_time_ms">Extend Time (ms)</label>
+                        <span class="config-current" id="cur_motion_extend_time_ms" aria-label="Current saved value">—</span>
+                    </div>
                     <input type="number"
                            id="motion_extend_time_ms"
                            class="input-field input-narrow"
@@ -105,8 +117,12 @@
                            min="0"
                            aria-label="Motion extend time in milliseconds">
                 </div>
+
                 <div class="config-row">
-                    <label class="config-label" for="motion_return_time_ms">Return Time (ms)</label>
+                    <div class="config-label-group">
+                        <label class="config-label" for="motion_return_time_ms">Return Time (ms)</label>
+                        <span class="config-current" id="cur_motion_return_time_ms" aria-label="Current saved value">—</span>
+                    </div>
                     <input type="number"
                            id="motion_return_time_ms"
                            class="input-field input-narrow"
@@ -114,6 +130,7 @@
                            min="0"
                            aria-label="Motion return time in milliseconds">
                 </div>
+
             </div>
             <div class="config-actions">
                 <button class="btn btn-primary" onclick="saveConfig()">Save Changes</button>

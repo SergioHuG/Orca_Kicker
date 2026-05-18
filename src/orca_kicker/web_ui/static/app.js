@@ -42,6 +42,21 @@ function formatTimestamp(unixSec) {
 
 function el(id) { return document.getElementById(id); }
 
+/**
+ * Update all four cur_<param> spans to reflect the given config data object.
+ * Called by loadConfig() on fetch and by saveConfig() after a successful save.
+ */
+function updateCurrentValues(data) {
+    EDITABLE_PARAMS.forEach(function (key) {
+        var span = el("cur_" + key);
+        if (!span) return;
+        var value = data[key];
+        span.textContent = (value !== null && value !== undefined)
+            ? "Current: " + value
+            : "—";
+    });
+}
+
 // ── Status polling ───────────────────────────────────────────────────────────
 
 function updateStatusUI(data) {
@@ -168,12 +183,17 @@ function loadConfig() {
         })
         .then(function (data) {
             if (!data) return;
+
+            // Populate editable inputs
             EDITABLE_PARAMS.forEach(function (key) {
                 var input = el(key);
                 if (input && data[key] !== null && data[key] !== undefined) {
                     input.value = data[key];
                 }
             });
+
+            // Populate current-value reference spans
+            updateCurrentValues(data);
         });
 }
 
@@ -201,6 +221,9 @@ function saveConfig() {
         if (result.ok) {
             msgEl.textContent = result.data.message || "Changes saved. Restart the app for changes to take effect.";
             msgEl.className   = "save-msg success";
+
+            // Advance the current-value spans to reflect the newly saved values
+            updateCurrentValues(payload);
         } else {
             msgEl.textContent = result.data.error || "Save failed";
             msgEl.className   = "save-msg err";

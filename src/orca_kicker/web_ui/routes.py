@@ -37,6 +37,9 @@ EDITABLE_PARAMS: frozenset = frozenset({
     "extended_position_um",
 })
 
+# YAML section that contains all four editable parameters.
+_MOTION_KEY = "motion"
+
 
 def register_routes(app: Flask) -> None:  # noqa: C901
 
@@ -131,7 +134,8 @@ def register_routes(app: Flask) -> None:  # noqa: C901
         config_path = current_app.config["CONFIG_PATH"]
         with open(config_path) as f:
             config = yaml.safe_load(f) or {}
-        result = {k: config.get(k) for k in EDITABLE_PARAMS}
+        motion = config.get(_MOTION_KEY) or {}
+        result = {k: motion.get(k) for k in EDITABLE_PARAMS}
         return jsonify(result)
 
     @app.route("/api/config", methods=["POST"])
@@ -150,14 +154,16 @@ def register_routes(app: Flask) -> None:  # noqa: C901
         with open(config_path) as f:
             config = yaml.safe_load(f) or {}
 
+        motion = config.setdefault(_MOTION_KEY, {})
+
         # Coerce types to match the existing YAML (int stays int, float stays float)
         for key, raw_value in data.items():
-            existing = config.get(key)
+            existing = motion.get(key)
             try:
                 if isinstance(existing, int):
-                    config[key] = int(raw_value)
+                    motion[key] = int(raw_value)
                 else:
-                    config[key] = float(raw_value)
+                    motion[key] = float(raw_value)
             except (TypeError, ValueError) as exc:
                 return jsonify({"error": f"Invalid value for '{key}': {exc}"}), 400
 

@@ -323,6 +323,19 @@ body {
     color: var(--gray-800);
 }
 
+.config-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.config-current {
+    font-size: 11px;
+    color: var(--gray-400);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
 .config-actions {
     display: flex;
     align-items: center;
