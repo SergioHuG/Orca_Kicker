@@ -301,7 +301,6 @@ class OrcaClient:
         _raise_if_err(err, f"set_kinematic_motion(id={id})")
 
     def trigger_kinematic_motion(self, id: int) -> None:
-        assert id != 2, "Never trigger motion ID 2 manually — firmware owns the chain."
         _raise_if_err(
             self._motor.trigger_kinematic_motion(int(id)),
             f"trigger_kinematic_motion({id})"

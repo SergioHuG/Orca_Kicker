@@ -58,12 +58,59 @@ class _DebouncedButton:
     def close(self) -> None:
         self._button.close()
 
+class _LevelInput:
+    """GPIO input that fires events on both press and release.
+    Used for level-triggered inputs where both edges matter.
+    Lockout applies to press only — release always fires.
+    """
+
+    def __init__(
+        self,
+        pin: int,
+        pull_up: bool,
+        bounce_time_s: Optional[float],
+        lockout_ms: int,
+        press_type: TriggerType,
+        release_type: TriggerType,
+        queue: TriggerQueue,
+        factory: PiGPIOFactory,
+    ) -> None:
+        self._lockout_s = lockout_ms / 1000.0
+        self._last_press_s: float = 0.0
+        self._press_type = press_type
+        self._release_type = release_type
+        self._queue = queue
+
+        self._button = Button(
+            pin=pin,
+            pull_up=pull_up,
+            bounce_time=bounce_time_s,
+            pin_factory=factory,
+        )
+        self._button.when_pressed = self._on_pressed
+        self._button.when_released = self._on_released
+
+    def _on_pressed(self) -> None:
+        now = time.monotonic()
+        if now - self._last_press_s < self._lockout_s:
+            return
+        self._last_press_s = now
+        self._queue.enqueue(TriggerEvent(trigger_type=self._press_type, timestamp_s=now))
+        logger.debug("GPIO level input PRESSED: %s", self._press_type.name)
+
+    def _on_released(self) -> None:
+        now = time.monotonic()
+        self._queue.enqueue(TriggerEvent(trigger_type=self._release_type, timestamp_s=now))
+        logger.debug("GPIO level input RELEASED: %s", self._release_type.name)
+
+    def close(self) -> None:
+        self._button.close()
 
 class GpioInputs:
     """Manages all GPIO input buttons for the kicker."""
 
     def __init__(self, config: GpioConfig, queue: TriggerQueue) -> None:
-        self._buttons: list[_DebouncedButton] = []
+        self._buttons: list = []
 
         if not config.enabled:
             logger.warning("GPIO disabled — no input buttons will be active.")
@@ -89,19 +136,20 @@ class GpioInputs:
 
         if config.kick.pin is not None:
             self._buttons.append(
-                _DebouncedButton(
+                _LevelInput(
                     pin=config.kick.pin,
                     pull_up=config.kick.pull_up,
                     bounce_time_s=config.kick.bounce_time_s,
                     lockout_ms=config.kick.lockout_ms,
-                    trigger_type=TriggerType.KICK,
+                    press_type=TriggerType.KICK,
+                    release_type=TriggerType.KICK_RELEASED,
                     queue=queue,
                     factory=factory,
                 )
             )
-            logger.info("Kick button on BCM pin %d", config.kick.pin)
+            logger.info("Kick level input on BCM pin %d", config.kick.pin)
         else:
-            logger.warning("Kick pin is TBD — button not registered.")
+            logger.warning("Kick pin is TBD — level input not registered.")
 
         if config.sleep_toggle.pin is not None:
             self._buttons.append(

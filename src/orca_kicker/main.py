@@ -28,7 +28,7 @@ from orca_kicker.triggers import TriggerQueue, TriggerType
 from orca_kicker.gpio_inputs import GpioInputs
 from orca_kicker.gpio_outputs import SleepIndicator
 from orca_kicker.logging_csv import CsvLogger
-from orca_kicker.kick_sequence import run_kick_cycle
+from orca_kicker.kick_sequence import trigger_extend, trigger_return
 import threading
 import yaml
 from orca_kicker.status_writer import StatusWriter, KickerStatus
@@ -41,7 +41,8 @@ class Phase(Enum):
     BOOT = auto()
     AUTOZERO_HOME = auto()
     IDLE = auto()
-    KICK = auto()
+    KICK_EXTEND = auto()
+    KICK_RETURN = auto()
     SLEEP = auto()
     FAULT = auto()
 
@@ -49,7 +50,8 @@ _PHASE_TO_STATE = {
     Phase.BOOT:          "BOOT",
     Phase.AUTOZERO_HOME: "AUTOZERO",
     Phase.IDLE:          "IDLE",
-    Phase.KICK:          "KICK",
+    Phase.KICK_EXTEND:   "KICK",
+    Phase.KICK_RETURN:   "KICK",
     Phase.SLEEP:         "SLEEP",
     Phase.FAULT:         "ERROR",
 }
@@ -91,6 +93,7 @@ def run(config_path: str = "configs/default.yaml") -> None:
     # ── Kick telemetry tracking ───────────────────────────────────────────────
     last_kick_time_s = None
     last_error_msg   = None
+    kick_start_s: float = 0.0
 
 
     loop_interval_s = 1.0 / cfg.loop.control_hz
@@ -130,7 +133,7 @@ def run(config_path: str = "configs/default.yaml") -> None:
             client.run()
             events = queue.drain()
 
-            # --- SLEEP guard: discard all events except SLEEP_TOGGLE ---
+            # ── SLEEP guard ──────────────────────────────────────────────────
             if phase == Phase.SLEEP:
                 for ev in events:
                     if ev.trigger_type == TriggerType.SLEEP_TOGGLE:
@@ -141,27 +144,58 @@ def run(config_path: str = "configs/default.yaml") -> None:
                         phase = Phase.IDLE
                         logger.info("Phase: IDLE (woke from SLEEP)")
                     else:
-                        logger.debug(
-                            "Event %s discarded — in SLEEP", ev.trigger_type.name
-                        )
-                status_writer.write(KickerStatus(
-                    state=_PHASE_TO_STATE[phase],
-                    position_um=client.position_um,
-                    last_kick_time_s=last_kick_time_s,
-                    last_error_msg=None,
-                    timestamp=time.time(),
-                ))
-
+                        logger.debug("Event %s discarded — in SLEEP", ev.trigger_type.name)
+                _write_status(status_writer, phase, client, last_kick_time_s, last_error_msg)
                 time.sleep(loop_interval_s)
                 continue
 
-            # --- Process events (IDLE only) ---
+            # ── KICK_EXTEND — motor extending or holding; wait for release ───
+            if phase == Phase.KICK_EXTEND:
+                for ev in events:
+                    if ev.trigger_type == TriggerType.KICK_RELEASED:
+                        logger.info("Kick input released — triggering RETURN")
+                        ok = trigger_return(client, cfg.motion)
+                        if ok:
+                            phase = Phase.KICK_RETURN
+                        else:
+                            last_error_msg = "COMM_ERROR"
+                            phase = Phase.FAULT
+                if phase == Phase.KICK_EXTEND:
+                    if time.monotonic() - kick_start_s > cfg.timeouts.kick_timeout_s:
+                        logger.error("KICK_EXTEND timeout")
+                        last_error_msg = "TIMEOUT"
+                        client.safe_stop()
+                        phase = Phase.FAULT
+                _write_status(status_writer, phase, client, last_kick_time_s, last_error_msg)
+                if phase == Phase.FAULT:
+                    break
+                time.sleep(loop_interval_s)
+                continue
+
+            # ── KICK_RETURN — motor returning home ───────────────────────────
+            if phase == Phase.KICK_RETURN:
+                pos = client.position_um
+                if pos is not None and abs(pos - home_um) <= cfg.tolerances.home_tol_um:
+                    last_kick_time_s = time.time()
+                    logger.info("Kick cycle COMPLETE — home reached at %d µm", pos)
+                    phase = Phase.IDLE
+                elif time.monotonic() - kick_start_s > cfg.timeouts.kick_timeout_s:
+                    logger.error("KICK_RETURN timeout")
+                    last_error_msg = "TIMEOUT"
+                    client.safe_stop()
+                    phase = Phase.FAULT
+                for ev in events:
+                    logger.debug("Event %s discarded — in KICK_RETURN", ev.trigger_type.name)
+                _write_status(status_writer, phase, client, last_kick_time_s, last_error_msg)
+                if phase == Phase.FAULT:
+                    break
+                time.sleep(loop_interval_s)
+                continue
+
+            # ── IDLE — normal event processing ───────────────────────────────
             for ev in events:
                 if phase != Phase.IDLE:
-                    logger.debug(
-                        "Event %s discarded — phase=%s",
-                        ev.trigger_type.name, phase.name,
-                    )
+                    logger.debug("Event %s discarded — phase=%s", ev.trigger_type.name, phase.name)
                     continue
 
                 if ev.trigger_type == TriggerType.SLEEP_TOGGLE:
@@ -180,41 +214,22 @@ def run(config_path: str = "configs/default.yaml") -> None:
                     logger.info("Phase: IDLE (home_um=%d µm)", home_um)
 
                 elif ev.trigger_type == TriggerType.KICK:
-                    logger.info("Phase: KICK")
-                    phase = Phase.KICK
-                    result = run_kick_cycle(
-                        client=client,
-                        csv_logger=csv_logger,
-                        motion=cfg.motion,
-                        timeouts=cfg.timeouts,
-                        tolerances=cfg.tolerances,
-                        home_um=home_um,
-                        loop_interval_s=loop_interval_s,
-                    )
-                    if not result.ok:
-                        logger.error(
-                            "Kick cycle failed: %s — entering FAULT", result.reason
-                        )
-                        last_error_msg = result.reason
+                    logger.info("Phase: KICK_EXTEND — triggering EXTEND")
+                    ok = trigger_extend(client, cfg.motion)
+                    if ok:
+                        kick_start_s = time.monotonic()
+                        phase = Phase.KICK_EXTEND
+                    else:
+                        last_error_msg = "COMM_ERROR"
                         phase = Phase.FAULT
-                        break
-                    last_kick_time_s = time.time()
-                    phase = Phase.IDLE
-                    logger.info(
-                        "Phase: IDLE (kick done in %.3f s)", result.cycle_time_s
-                    )
+
+                elif ev.trigger_type == TriggerType.KICK_RELEASED:
+                    logger.debug("KICK_RELEASED in IDLE — ignored")
 
             if phase == Phase.FAULT:
                 break
 
-            status_writer.write(KickerStatus(
-                state=_PHASE_TO_STATE[phase],
-                position_um=client.position_um,
-                last_kick_time_s=last_kick_time_s,
-                last_error_msg=last_error_msg if phase == Phase.FAULT else None,
-                timestamp=time.time(),
-            ))
-
+            _write_status(status_writer, phase, client, last_kick_time_s, last_error_msg)
             time.sleep(loop_interval_s)
 
     except KeyboardInterrupt:
@@ -246,6 +261,21 @@ def run(config_path: str = "configs/default.yaml") -> None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+def _write_status(
+    writer: StatusWriter,
+    phase: Phase,
+    client: OrcaClient,
+    last_kick_time_s,
+    last_error_msg,
+) -> None:
+    """Write current state to status.json for the Flask UI."""
+    writer.write(KickerStatus(
+        state=_PHASE_TO_STATE[phase],
+        position_um=client.position_um,
+        last_kick_time_s=last_kick_time_s,
+        last_error_msg=last_error_msg if phase == Phase.FAULT else None,
+        timestamp=time.time(),
+    ))
 
 def _do_autozero_home(client: OrcaClient, cfg, loop_interval_s: float) -> None:
     logger.info("AutoZero starting...")
@@ -337,15 +367,15 @@ def _program_motions(client: OrcaClient, cfg, home_um: int) -> None:
         auto_next=False,
         next_id=-1,
     )
-    # ID 1 — EXTEND (chains to RETURN automatically via firmware)
+    # ID 1 — EXTEND (holds at extended position — Python triggers RETURN on input release)
     client.set_kinematic_motion(
         id=m.motion_extend_id,
         position=home_um + m.extended_position_um,
         time_ms=m.motion_extend_time_ms,
         delay=0,
         type=m.kin_type_min_jerk,
-        auto_next=True,
-        next_id=m.motion_return_id,
+        auto_next=False,
+        next_id=-1,
     )
     # ID 2 — RETURN (chained by firmware — never triggered manually)
     client.set_kinematic_motion(

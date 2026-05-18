@@ -17,6 +17,7 @@ from typing import Optional
 class TriggerType(Enum):
     KICK = auto()
     AUTOZERO = auto()
+    KICK_RELEASED = auto()
     SLEEP_TOGGLE = auto()
 
 

@@ -9,8 +9,8 @@ loop:
 motion:
   home_offset_um: 8000
   motion_home_id: 0
-  motion_extend_id: 1           # EXTEND motion (auto_next → return)
-  motion_return_id: 2           # RETURN motion (chained by firmware)
+  motion_extend_id: 1           # EXTEND motion (holds — Python triggers return on input release)
+  motion_return_id: 2           # RETURN motion (triggered by Python on input release)
   kin_type_min_jerk: 1
   motion_home_time_ms: 500
   motion_extend_time_ms: 150
