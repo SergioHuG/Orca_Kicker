@@ -25,10 +25,18 @@ timeouts:
 tolerances:
   home_tol_um: 800
 
+startup:
+  boot_autozero_delay_s: 20      # wait this long after boot before auto-AutoZero
+
 logging:
-  log_dir: logs
+  log_dir: /data/logs            # production: writable /data partition
   csv_prefix: kick_cycle
-  enabled:  false
+  enabled: false                 # CSV cycle logging stays off in production
+  file_enabled: true             # rotating app log
+  file_name: orca_kicker.log
+  file_level: INFO               # state transitions + errors
+  max_bytes: 5000000             # 5 MB per file
+  backup_count: 3                # keep 3 rotated files (~15 MB total)
 
 gpio:
   enabled: true
@@ -54,7 +62,7 @@ gpio:
     active_high: true
 
 web_ui:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 5000
   status_json_path: "status.json"
   secrets_path: "configs/secrets.yaml"

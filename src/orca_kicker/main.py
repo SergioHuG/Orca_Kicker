@@ -57,17 +57,37 @@ _PHASE_TO_STATE = {
 }
 
 
-def _setup_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
-        datefmt="%H:%M:%S",
+def _setup_logging(log_cfg) -> None:
+    """Console (captured by journald) + rotating file handler on /data."""
+    from logging.handlers import RotatingFileHandler
+    from pathlib import Path
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    fmt = logging.Formatter(
+        "%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+    console = logging.StreamHandler()
+    console.setFormatter(fmt)
+    root.addHandler(console)
+
+    if getattr(log_cfg, "file_enabled", False):
+        Path(log_cfg.log_dir).mkdir(parents=True, exist_ok=True)
+        fh = RotatingFileHandler(
+            Path(log_cfg.log_dir) / log_cfg.file_name,
+            maxBytes=log_cfg.max_bytes,
+            backupCount=log_cfg.backup_count,
+        )
+        fh.setLevel(getattr(logging, str(log_cfg.file_level).upper(), logging.INFO))
+        fh.setFormatter(fmt)
+        root.addHandler(fh)
 
 
 def run(config_path: str = "configs/default.yaml") -> None:
-    _setup_logging()
     cfg = load_config(config_path)
+    _setup_logging(cfg.logging)
 
     # ── Status writer (IPC to Flask UI) ───────────────────────────────────────
     with open(config_path) as _f:
@@ -120,6 +140,16 @@ def run(config_path: str = "configs/default.yaml") -> None:
         client.set_mode(MotorMode.KinematicMode)
 
         phase = Phase.AUTOZERO_HOME
+        if cfg.startup.boot_autozero_delay_s > 0:
+            logger.info(
+                "Boot AutoZero delay: waiting %.0f s before AutoZero...",
+                cfg.startup.boot_autozero_delay_s,
+            )
+            delay_deadline = time.monotonic() + cfg.startup.boot_autozero_delay_s
+            while time.monotonic() < delay_deadline:
+                client.run()
+                _write_status(status_writer, phase, client, last_kick_time_s, last_error_msg)
+                time.sleep(loop_interval_s)
         logger.info("Phase: AUTOZERO_HOME")
         _do_autozero_home(client, cfg, loop_interval_s)
         home_um = client.position_um or cfg.motion.home_offset_um

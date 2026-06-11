@@ -58,6 +58,16 @@ class LoggingConfig:
     log_dir: str
     csv_prefix: str
     enabled: bool
+    file_enabled: bool = True
+    file_name: str = "orca_kicker.log"
+    file_level: str = "INFO"
+    max_bytes: int = 5_000_000
+    backup_count: int = 3
+
+
+@dataclass(frozen=True)
+class StartupConfig:
+    boot_autozero_delay_s: float
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,7 @@ class KickerConfig:
     tolerances: TolerancesConfig
     logging: LoggingConfig
     gpio: GpioConfig
+    startup: StartupConfig
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +150,11 @@ def load_config(path: str | Path) -> KickerConfig:
             sleep_indicator=GpioOutputPinConfig(
                 pin=_parse_pin(gpio_raw["sleep_indicator"]["pin"]),
                 active_high=bool(gpio_raw["sleep_indicator"]["active_high"]),
+            ),
+        ),
+        startup=StartupConfig(
+            boot_autozero_delay_s=float(
+                (raw.get("startup") or {}).get("boot_autozero_delay_s", 0.0)
             ),
         ),
     )
