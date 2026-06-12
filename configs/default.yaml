@@ -40,8 +40,8 @@ logging:
 
 gpio:
   enabled: true
-  backend: pigpio
-  pigpio_host: localhost
+  backend: lgpio
+  pigpio_host: localhost        # unused — retained for config compat
   autozero:
     pin: 5
     pull_up: true

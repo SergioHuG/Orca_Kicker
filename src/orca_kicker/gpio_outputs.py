@@ -5,7 +5,7 @@ Must be driven LOW on any exception or clean shutdown.
 
 Rules:
 - Sleep output pin MUST be driven LOW on any exception or shutdown.
-- Uses gpiozero.OutputDevice with pigpio backend (ADR-010).
+- Uses gpiozero.OutputDevice with lgpio backend.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 
 from gpiozero import OutputDevice
-from gpiozero.pins.pigpio import PiGPIOFactory
+from gpiozero.pins.lgpio import LGPIOFactory
 
 from orca_kicker.config import GpioConfig
 
@@ -41,7 +41,7 @@ class SleepIndicator:
             logger.warning("Sleep indicator pin is TBD — output not active.")
             return
 
-        factory = PiGPIOFactory(host=config.pigpio_host)
+        factory = LGPIOFactory()
 
         self._device = OutputDevice(
             pin=config.sleep_indicator.pin,

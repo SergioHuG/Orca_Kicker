@@ -11,7 +11,7 @@ import logging
 from typing import Optional
 
 from gpiozero import Button
-from gpiozero.pins.pigpio import PiGPIOFactory
+from gpiozero.pins.lgpio import LGPIOFactory
 
 from orca_kicker.triggers import TriggerEvent, TriggerQueue, TriggerType
 from orca_kicker.config import GpioConfig
@@ -30,7 +30,7 @@ class _DebouncedButton:
         lockout_ms: int,
         trigger_type: TriggerType,
         queue: TriggerQueue,
-        factory: PiGPIOFactory,
+        factory: LGPIOFactory,
     ) -> None:
         self._lockout_s = lockout_ms / 1000.0
         self._last_trigger_s: float = 0.0
@@ -73,7 +73,7 @@ class _LevelInput:
         press_type: TriggerType,
         release_type: TriggerType,
         queue: TriggerQueue,
-        factory: PiGPIOFactory,
+        factory: LGPIOFactory,
     ) -> None:
         self._lockout_s = lockout_ms / 1000.0
         self._last_press_s: float = 0.0
@@ -116,7 +116,7 @@ class GpioInputs:
             logger.warning("GPIO disabled — no input buttons will be active.")
             return
 
-        factory = PiGPIOFactory(host=config.pigpio_host)
+        factory = LGPIOFactory()
 
         if config.autozero.pin is not None:
             self._buttons.append(
